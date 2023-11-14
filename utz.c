@@ -5,11 +5,12 @@
  */
 
 #include <stdint.h>
+#include <string.h>
 
 #include "utz.h"
 #include "zones.h"
 
-const char days_of_week[] = {
+const char _days_of_week[] = {
 'M','o','n','d','a','y','\0',
 'T','u','e','s','d','a','y','\0',
 'W','e','d','n','e','s','d','a','y','\0',
@@ -19,7 +20,12 @@ const char days_of_week[] = {
 'S','u','n','d','a','y','\0',
 };
 
-const char months_of_year[] = {
+const char* days_of_week = (char*)  _days_of_week;
+
+const uint8_t _days_of_week_idx[] = {0, 7, 15, 25, 34, 41, 50};
+const uint8_t* days_of_week_idx = (uint8_t*) _days_of_week_idx;
+
+const char _months_of_year[] = {
 'J','a','n','u','a','r','y','\0',
 'F','e','b','r','u','a','r','y','\0',
 'M','a','r','c','h','\0',
@@ -32,51 +38,16 @@ const char months_of_year[] = {
 'N','o','v','e','m','b','e','r','\0',
 'D','e','c','e','m','b','e','r','\0',
 };
+const char* months_of_year = (char*) _months_of_year;
 
+const uint8_t _months_of_year_idx[] = {0, 8, 17, 23, 29, 33, 38, 43, 50, 60, 68, 77};
+const uint8_t* months_of_year_idx = (uint8_t*) _months_of_year_idx;
+
+urule_t cached_rules[MAX_CURRENT_RULES];
 const uzone_packed_t* last_zone;
 uint8_t last_year;
-urule_t cached_rules[MAX_CURRENT_RULES];
 
-uint8_t ustrneq(const char* string1, const char* string2, uint8_t n) {
-#ifndef UTZ_GLOBAL_COUNTERS
-  uint8_t utz_i;
-#endif
-  for (utz_i = 0; utz_i < n && string1[utz_i] != '\0' && string2[utz_i] != '\0'; utz_i++) {
-    if (string1[utz_i] != string2[utz_i]) {
-      return UFALSE;
-    }
-  }
-  return UTRUE;
-}
-
-#define ustrncpy(dest, src, n) ustrnreplace(dest, src, 0, 0, n)
-char* ustrnreplace(char* dest, const char* src, char c, char* replacement, uint8_t n) {
-#ifndef UTZ_GLOBAL_COUNTERS
-  uint8_t utz_i, utz_j;
-#endif
-  for (utz_i = utz_j = 0; utz_i < n; (utz_i++)) {
-    if (replacement != 0 && src[utz_i] == c) {
-      while(*replacement != '\0') {
-        dest[utz_j++]= *(replacement++);
-      }
-    } else {
-      dest[utz_j++] = src[utz_i];
-    }
-    if (src[utz_i] == '\0') {
-      break;
-    }
-  }
-  return dest;
-}
-
-
-uint8_t bin_to_bcd(uint8_t value) {
-  return ((value / 10) << 4) | (value % 10);
-}
-
-uint8_t bcd_to_bin(uint8_t value) {
-  return (value & 0x0F) + ((value >> 4) * 10);
-}
+#define ustrneq(s1, s2, n) (strncmp(s1, s2, n) == 0)
 
 uint8_t dayofweek(uint8_t y, uint8_t m, uint8_t d) {
     static const uint8_t dayofweek_table[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
@@ -87,13 +58,16 @@ uint8_t dayofweek(uint8_t y, uint8_t m, uint8_t d) {
 
 uint8_t is_leap_year(uint8_t y) {
 #if UYEAR_OFFSET == 2000
-  if (0 == (y & 0x03) && y != 100 && y != 200) {
+    if (y % 4 || y == 100 || y == 200) {
+    return UFALSE;
+  }
+  return UTRUE;
 #else
   if ((((UYEAR_TO_YEAR(y) % 4) == 0) && ((UYEAR_TO_YEAR(y) % 100) != 0)) || ((UYEAR_TO_YEAR(y) % 400) == 0)) {
-#endif
     return UTRUE;
   }
   return UFALSE;
+#endif
 }
 
 uint8_t days_in_month(uint8_t y, uint8_t m) {
@@ -109,7 +83,7 @@ uint8_t next_dayofweek_offset(uint8_t dayofweek_of_cur, uint8_t dayofweek) {
   return (7 + dayofweek - dayofweek_of_cur) % 7;
 }
 
-int16_t udatetime_cmp(udatetime_t* dt1, udatetime_t* dt2) {
+int16_t udatetime_cmp(const udatetime_t* dt1, const udatetime_t* dt2) {
   int16_t ret;
   ret = dt1->date.year - dt2->date.year; if(ret != 0) { return ret; }
   ret = dt1->date.month - dt2->date.month; if(ret != 0) { return ret; }
@@ -143,7 +117,7 @@ void unpack_rule(const urule_packed_t* rule_in, uint8_t cur_year, urule_t* rule_
   } else { // format is DOW >= DOM e.g. Sun>=22
     dayofweek_of_dayofmonth = dayofweek(cur_year, rule_in->in_month, rule_in->on_dayofmonth);
     rule_out->date.dayofmonth = rule_in->on_dayofmonth + next_dayofweek_offset(
-      dayofweek_of_dayofmonth, 
+      dayofweek_of_dayofmonth,
       rule_in->on_dayofweek
     );
   }
@@ -178,7 +152,7 @@ void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, uint8_t cur
   uint8_t current_rule_count = 1;
 
   for (utz_i = 0; utz_i < num_rules && current_rule_count < MAX_CURRENT_RULES; utz_i++) {
-    // First lets find the "last" rule of the previous year, for simplification 
+    // First lets find the "last" rule of the previous year, for simplification
     // this assumes that multiple rules don't apply to the same month and
     // that the offset would not change between years (just the day of effect)
     if (cur_year >= rules_in[utz_i].from_year && cur_year <= rules_in[utz_i].to_year) {
@@ -199,7 +173,7 @@ void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, uint8_t cur
   }
 }
 
-urule_t* get_active_rule(urule_t* rules, udatetime_t* datetime) {
+const urule_t* get_active_rule(const urule_t* rules, const udatetime_t* datetime) {
 #ifndef UTZ_GLOBAL_COUNTERS
   int8_t utz_i = 0;
 #endif
@@ -211,8 +185,8 @@ urule_t* get_active_rule(urule_t* rules, udatetime_t* datetime) {
   return &rules[MAX_CURRENT_RULES-1];
 }
 
-char get_current_offset(uzone_t* zone, udatetime_t* datetime, uoffset_t* offset) {
-  urule_t* rule;
+char get_current_offset(const uzone_t* zone, const udatetime_t* datetime, uoffset_t* offset) {
+  const urule_t* rule;
   if (last_zone != zone->src || last_year != datetime->date.year) {
     unpack_rules(zone->rules, zone->rules_len, datetime->date.year, cached_rules);
     last_zone = zone->src;

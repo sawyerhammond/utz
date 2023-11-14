@@ -12,5 +12,10 @@
 build
 *.o
 example
+*.rel
+*.asm
+*.sym
+*.lst
+*.rst
 .mypy_cache/
 a.out

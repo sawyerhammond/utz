@@ -15,15 +15,15 @@ export UTZ_INCLUDES:=$(UTZ_INCLUDES)
 all: zones.h zones.c
 
 zones.h: $(UTZ_DATA_DIR) $(UTZ_INCLUDES) $(UTZ_WHITELIST) utils/generate_zones.py utils/utz.py
-	./utils/generate_zones.py
+	python3 ./utils/generate_zones.py
 zones.c: zones.h
 
 whitelist.txt: vendor/android/timezones.xml majorcities utils/compile_whitelist.py
-	./utils/compile_whitelist.py
+	python3 ./utils/compile_whitelist.py
 
 # The IANA timezone database is missing zone links for many of the worlds largest metropolitan areas
 majorcities:
-	./utils/compile_tzlinks.py
+	python3 ./utils/compile_tzlinks.py
 
 %.o: %.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)

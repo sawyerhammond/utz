@@ -105,8 +105,8 @@ typedef struct uzone_packed_t {
  *
  *  @var urule_packed_t::from_year years since 2000
  *  @var urule_packed_t::to_year years since 2000
- *  @var urule_packed_t::on_dayofweek day of week (monday = 1, sunday = 7) 
- *  @var urule_packed_t::on_dayofmonth day of month 
+ *  @var urule_packed_t::on_dayofweek day of week (monday = 1, sunday = 7)
+ *  @var urule_packed_t::on_dayofmonth day of month
  *  @var urule_packed_t::at_is_local_time is time of day in local time, if not utc
  *  @var urule_packed_t::at_hours time of day, hours
  *  @var urule_packed_t::at_inc_minutes time of day, minutes, in OFFSET_INCREMENT minute increments
@@ -155,20 +155,6 @@ typedef struct urule_t {
 /*                         datetime functions                             */
 /**************************************************************************/
 
-/** @brief convert a binary formatted udate_t or utime_t to bcd format via a pointer to the raw field
- *
- *  @param pointer to the raw field of a udate_t or utime_t
- *  @return void
- */
-uint8_t bin_to_bcd(uint8_t value);
-
-/** @brief convert a bcd formatted udate_t or utime_t to binary format via a pointer to the raw field
- *
- *  @param pointer to the raw field of a udate_t or utime_t
- *  @return void
- */
-uint8_t bcd_to_bin(uint8_t value);
-
 /** @brief returns the day of the week for the given year/month/day
  *
  *  @param y year: 1 <= y <= 255 (2001 - 2255)
@@ -184,6 +170,10 @@ uint8_t dayofweek(uint8_t y, uint8_t m, uint8_t d);
  *  @brief true if the year is a leap year
  */
 uint8_t is_leap_year(uint8_t y);
+
+/** FIXME
+ */
+uint8_t days_in_month(uint8_t y, uint8_t m);
 
 /** @brief returns days needed to get from the "current" day to the desired day of the week.
  *
@@ -264,7 +254,7 @@ void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, uint8_t cur
  *  @param datetime the datetime to check rules for
  *  @return a pointer the the rule that applies
  */
-urule_t* get_active_rule(urule_t* rules, udatetime_t* datetime);
+const urule_t* get_active_rule(const urule_t* rules, const udatetime_t* datetime);
 
 /** @brief get the offset for zone at datetime, taking into account daylight savings time rules
  *
@@ -273,7 +263,7 @@ urule_t* get_active_rule(urule_t* rules, udatetime_t* datetime);
  *  @param offset offset for zone at datetime
  *  @return abbreviation letter
  */
-char get_current_offset(uzone_t* zone, udatetime_t* datetime, uoffset_t* offset);
+char get_current_offset(const uzone_t* zone, const udatetime_t* datetime, uoffset_t* offset);
 
 /** @brief unpack timezone
  *
@@ -299,7 +289,7 @@ uint8_t get_next(const char** list);
  */
 void get_zone_by_name(char* name, uzone_t* zone_out);
 
-int16_t udatetime_cmp(udatetime_t* dt1, udatetime_t* dt2);
+int16_t udatetime_cmp(const udatetime_t* dt1, const udatetime_t* dt2);
 
 #ifdef UTZ_MKTIME
 uint32_t umktime(udatetime_t* dt);
@@ -312,10 +302,10 @@ uint32_t umktime(udatetime_t* dt);
 extern urule_t cached_rules[MAX_CURRENT_RULES];
 
 /** @brief lookup table name of the days of week */
-extern const uint8_t _days_of_week_idx[];
-extern const char _days_of_week[];
-extern const uint8_t _months_of_year_idx[];
-extern const char _months_of_year[];
+extern const uint8_t* days_of_week_idx;
+extern const char* days_of_week;
+extern const uint8_t* months_of_year_idx;
+extern const char* months_of_year;
 
 //FIXME
 const char* get_index(const char* list, uint8_t i);
@@ -325,16 +315,7 @@ static uint8_t utz_i, utz_j;
 static uint16_t utz_k;
 #endif
 
-#define days_of_week(n) (&_days_of_week[_days_of_week_idx[n]])
-#define months_of_year(n) (&_months_of_year[_months_of_year_idx[n]])
-
-/**************************************************************************/
-/*                                 zones                                  */
-/**************************************************************************/
-
-extern const urule_packed_t zone_rules[];
-extern const uzone_packed_t zone_defns[];
-extern const char zone_abrevs[];
-extern const unsigned char zone_names[];
+#define days_of_week(n) (&days_of_week[days_of_week_idx[n-1]])
+#define months_of_year(n) (&months_of_year[months_of_year_idx[n-1]])
 
 #endif /* _UTZ_H */

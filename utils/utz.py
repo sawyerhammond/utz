@@ -348,10 +348,8 @@ class TimeZoneDatabase(object):
             for rule in sorted(group, key=lambda x: MONTHS.index(x._in)):
                 c_buf.append(rule.pack())
                 idx = idx + 1
-        c_buf[c_buf.index('PLACEHOLDER')
-              ] = f'const urule_packed_t zone_rules[{idx}] = {{'
+        c_buf[c_buf.index('PLACEHOLDER')] = f'const urule_packed_t _zone_rules[{idx}] = {{'
         c_buf.append('};')
-        h_buf.append(f'const urule_packed_t zone_rules[{idx}];')
 
         return group_idx
 
@@ -380,11 +378,9 @@ class TimeZoneDatabase(object):
 
         c_buf.append('};')
         c_buf.append('')
-        c_buf[c_buf.index('PLACEHOLDER')
-              ] = f'const char zone_abrevs[{total_char}] = {{'
-        h_buf.extend(
-            [f'const char zone_abrevs[{total_char}];', ''])
+        c_buf[c_buf.index('PLACEHOLDER')] = f'const char _zone_abrevs[{total_char}] = {{'
         h_buf.extend([f'#define MAX_ABREV_FORMATTER_LEN {max_char}', ''])
+        h_buf.extend('')
 
         for zone in sorted(self.zones):
             packed_zone = zone.pack(
@@ -394,15 +390,12 @@ class TimeZoneDatabase(object):
             packed_zones[packed_zone].append(zone)
             zone_indexes[zone.name] = list(packed_zones).index(packed_zone)
 
-        c_buf.append(
-            f'const uzone_packed_t zone_defns[{len(packed_zones)}] = {{')
+        c_buf.append(f'const uzone_packed_t _zone_defns[{len(packed_zones)}] = {{')
         for packed_zone, srcs in packed_zones.items():
             for src_zone in srcs:
                 c_buf.append('// ' + src_zone._src)
             c_buf.append(packed_zone)
         c_buf.append('};')
-        h_buf.append(
-            f'const uzone_packed_t zone_defns[{len(packed_zones)}];')
 
         return zone_indexes
 
@@ -443,11 +436,15 @@ class TimeZoneDatabase(object):
             total_char += len(char) + 1
             if len(char) > max_char:
                 max_char = len(char)
-            c_buf.append(("%" + str(max_len*5) + "s, %3d, // %s") %
-                         ("'%s'" % "','".join(char), index, name))
-        c_buf[c_buf.index(
-            'PLACEHOLDER')] = f'const unsigned char zone_names[{total_char}] = {{'
+            c_buf.append(("%" + str(max_len*5) + "s, %3d, // %s") % ("'%s'" % "','".join(char), index, name))
+        c_buf[c_buf.index('PLACEHOLDER')] = f'const char _zone_names[{total_char}] = {{'
         c_buf.append('};')
-        h_buf.extend(
-            ['', f'#define NUM_ZONE_NAMES {len(aliases)}', f'#define MAX_ZONE_NAME_LEN {max_char}', ''])
-        h_buf.append(f'const unsigned char zone_names[{total_char}];')
+        h_buf.extend(['', f'#define NUM_ZONE_NAMES {len(aliases)}', f'#define MAX_ZONE_NAME_LEN {max_char}', ''])
+        c_buf.append('const urule_packed_t* zone_rules = (urule_packed_t*)  _zone_rules;')
+        c_buf.append('const char* zone_abrevs = (char*) _zone_abrevs;')
+        c_buf.append('const uzone_packed_t* zone_defns = (uzone_packed_t*) _zone_defns;')
+        c_buf.append('const char* zone_names = (char*) _zone_names;')
+        h_buf.append('extern const urule_packed_t* zone_rules;')
+        h_buf.append('extern const uzone_packed_t* zone_defns;')
+        h_buf.append('extern const char* zone_abrevs;')
+        h_buf.append('extern const char* zone_names;')
