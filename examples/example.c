@@ -32,7 +32,7 @@ static void test_working(void)
   {
     time = i;
     //clear TZ
-    unsetenv("TZ");
+    setenv("TZ", "America/Chicago", 1);
     tzset();
 
     //Get the local time from actual for DST
