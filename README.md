@@ -24,7 +24,7 @@ formatting, etc to make efficient use of bit packs.
 
 The current utility library does not support parsing /
 packing all possible syntax of the source IANA tz database.
-Instead a subset corresponding to the what is needed to correctly parse  
+Instead a subset corresponding to the what is needed to correctly parse
 most zones is implemented.
 
 ## Links
@@ -35,13 +35,20 @@ most zones is implemented.
 
 ## Instructions to generate files (without Make)
 
-1. Setup dev environment:  
+1. Setup dev environment:
    `python3 -m pip install -r requirements.txt`
-2. Generate links based on major cities:  
+2. Generate links based on major cities:
    `python3 utils/compile_tzlinks.py`
-3. Generate a list of timezones to include, based on major cities and timezones included in Android:  
+3. Generate a list of timezones to include, based on major cities and timezones included in Android:
    `python3 utils/compile_whitelist.py`
-5. Generate `zones.h` and `zones.c`:  
+5. Generate `zones.h` and `zones.c`:
    `python3 utils/generate_zones.py -d vendor/tzdata -r africa -r asia -r australasia -r backward -r europe -r northamerica -r pacificnew -r southamerica -w whitelist.txt -i majorcities`
 
 Include different regions in step 5 based on your preferences
+
+## Updating the TZ Database
+To update the tzdatabase replace the files in `vendor/tzdata` with that of the following link:
+https://www.iana.org/time-zones
+Use the data only distribution
+
+Should make this an automatic process via GitHub actions (Possible Feature).

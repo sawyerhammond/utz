@@ -3,7 +3,7 @@ CFLAGS=-I.
 DEPS = zones.h
 
 UTZ_DATA_DIR = vendor/tzdata
-UTZ_REGIONS = africa,asia,australasia,backward,europe,northamerica,pacificnew,southamerica
+UTZ_REGIONS = africa,asia,australasia,backward,europe,northamerica,southamerica
 UTZ_WHITELIST = whitelist.txt
 UTZ_INCLUDES = majorcities
 export UTZ_DATA_DIR:=$(UTZ_DATA_DIR)
