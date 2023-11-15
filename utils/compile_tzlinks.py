@@ -33,7 +33,7 @@ def main():
                     if zone:
                         city = unicodedata.normalize('NFD', city).encode(
                             'ascii', 'ignore').decode('ascii')
-                        city = city.replace(' ', '_')
+                        #city = city.replace(' ', '_')
                         if zone.split('/')[-1] not in city:
                             alias = zone.split('/')[:-1]
                             alias.append(city)

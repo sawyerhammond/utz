@@ -11,6 +11,10 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <assert.h>
+#include <string.h>
+
+#define ustrneq(s1, s2, n) (strncmp(s1, s2, n) == 0)
 
 static void print_all(struct tm tm, udatetime_t dt)
 {
@@ -18,22 +22,28 @@ static void print_all(struct tm tm, udatetime_t dt)
   printf("%d/%d/%d - %d:%d:%d\r\n", dt.date.month, dt.date.dayofmonth, dt.date.year+2000, dt.time.hour, dt.time.minute, dt.time.second);
 }
 
-static void test_working(void)
+static void test_zone(char * name)
 {
+  printf("Testing Zone %s\r\n", name);
   struct tm tm;
   udatetime_t dt = {0};
   uoffset_t offset;
   uzone_t active_zone;
   time_t time;
-  get_zone_by_name("New_York", &active_zone);
-
+  get_zone_by_name(name, &active_zone);
   //all of 2023
   for(time_t i=1672552800; i<1704088799; i+=60)
   {
     time = i;
     //clear TZ
-    setenv("TZ", "America/New_York", 1);
+    setenv("TZ", name, 1);
     tzset();
+
+    if(strcmp(name, getenv("TZ")))
+    {
+      printf("Failed to set TZ: %s - %s\r\n", name, getenv("TZ"));
+      return;
+    }
 
     //Get the local time from actual for DST
     tm = *localtime(&time);
@@ -59,20 +69,18 @@ static void test_working(void)
 
     if(dst)
     {
-      if(offset.hours != active_zone.offset.hours + 1)
-      {
-        printf("NO Should not be DST! %d - isdst: %d\r\n", offset.hours, dst);
-        print_all(tm, dt);
-      }
+      assert(offset.hours == (active_zone.offset.hours + active_zone.rules->offset_hours));
     }
     else
     {
-      //if(offset.hours != -6)
+
       if(offset.hours != active_zone.offset.hours)
       {
-        printf("NO Should not be DST! %d - isdst: %d\r\n", offset.hours, dst);
         print_all(tm, dt);
+        printf("%d\r\n", active_zone.rules_len);
+        printf("%d - %d\r\n", offset.hours, active_zone.offset.hours);
       }
+      assert(offset.hours == active_zone.offset.hours);
     }
   }
 }
@@ -81,8 +89,16 @@ int main()
 {
   //printf("Total library db size: %lu B\n", sizeof(zone_rules) + sizeof(zone_abrevs) + sizeof(zone_defns) + sizeof(zone_names));
 
-  test_working();
+  //Go through each zone and test it
+  const char* zone = zone_names;
+  for (uint16_t utz_k = 0; utz_k < NUM_ZONE_NAMES; utz_k++) {
+    test_zone(zone);
+    get_next(&zone);
+    zone++;
+  }
+
   return 0;
+  /*
 
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
@@ -123,4 +139,5 @@ int main()
   printf("\n");
 
   return 0;
+  */
 }

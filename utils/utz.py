@@ -409,7 +409,8 @@ class TimeZoneDatabase(object):
         for name, index in zone_indexes.items():
             if '/' in name:  # The only zones without / are "legacy aliases" like EST, PST etc
                 if not included_aliases or name in included_aliases:
-                    name = name.split('/')[-1]
+                    #print(name)
+                    #name = name.split('/')[-1]
                     aliases[name] = index
                     if len(name) > max_len:
                         max_len = len(name)
@@ -426,7 +427,7 @@ class TimeZoneDatabase(object):
             name = name.replace(",", '')
             h_buf.append(("#define UTZ_" + name.upper() + ' ' *
                           (max_len+4-len(name)) + f'&zone_defns[{index:3}]'))
-            name = orig_name.replace('_', ' ')
+            #name = orig_name.replace('_', ' ')
             for c in name:
                 if c == "'":
                     char.append("\\'")
