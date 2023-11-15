@@ -45,7 +45,7 @@ static void test_working(void)
     tzset();
 
     //Adjust for time zone
-    time -= 3600 * 6;
+    time += 3600 * active_zone.offset.hours;
     tm = *localtime(&time);
 
     dt.date.year = tm.tm_year + 1900 - 2000;
@@ -59,7 +59,7 @@ static void test_working(void)
 
     if(dst)
     {
-      if(offset.hours != -5)
+      if(offset.hours != active_zone.offset.hours + 1)
       {
         printf("NO Should not be DST! %d - isdst: %d\r\n", offset.hours, dst);
         print_all(tm, dt);
@@ -67,7 +67,8 @@ static void test_working(void)
     }
     else
     {
-      if(offset.hours != -6)
+      //if(offset.hours != -6)
+      if(offset.hours != active_zone.offset.hours)
       {
         printf("NO Should not be DST! %d - isdst: %d\r\n", offset.hours, dst);
         print_all(tm, dt);
@@ -114,6 +115,7 @@ int main()
 
   uzone_t active_zone;
   get_zone_by_name("Chicago", &active_zone);
+  printf("zone offset: %d:%d\r\n", active_zone.offset.hours, active_zone.offset.minutes);
   uoffset_t offset;
   char c = get_current_offset(&active_zone, &dt, &offset);
   printf("%s, current offset: %d.%d\n", active_zone.name, offset.hours, offset.minutes / 60);
