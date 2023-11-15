@@ -25,14 +25,14 @@ static void test_working(void)
   uoffset_t offset;
   uzone_t active_zone;
   time_t time;
-  get_zone_by_name("Chicago", &active_zone);
+  get_zone_by_name("New_York", &active_zone);
 
   //all of 2023
   for(time_t i=1672552800; i<1704088799; i+=60)
   {
     time = i;
     //clear TZ
-    setenv("TZ", "America/Chicago", 1);
+    setenv("TZ", "America/New_York", 1);
     tzset();
 
     //Get the local time from actual for DST

@@ -3,4 +3,7 @@
     "python.autoComplete.extraPaths": [
         "./utils"
     ],
+    "python.analysis.extraPaths": [
+        "./utils"
+    ],
 }
