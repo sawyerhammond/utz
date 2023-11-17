@@ -39,11 +39,7 @@ static void test_zone(char * name)
     setenv("TZ", name, 1);
     tzset();
 
-    if(strcmp(name, getenv("TZ")))
-    {
-      printf("Failed to set TZ: %s - %s\r\n", name, getenv("TZ"));
-      return;
-    }
+    assert(strcmp(getenv("TZ"), name) == 0);
 
     //Get the local time from actual for DST
     tm = *localtime(&time);
@@ -55,7 +51,7 @@ static void test_zone(char * name)
     tzset();
 
     //Adjust for time zone
-    time += 3600 * active_zone.offset.hours;
+    time += (3600 * active_zone.offset.hours) + (60 * active_zone.offset.minutes);
     tm = *localtime(&time);
 
     dt.date.year = tm.tm_year + 1900 - 2000;
@@ -69,20 +65,82 @@ static void test_zone(char * name)
 
     if(dst)
     {
+      if(offset.hours != (active_zone.offset.hours + active_zone.rules->offset_hours))
+      {
+        printf("Rule 1 Month: %d\r\n", active_zone.rules[0].in_month);
+        printf("Rule 2 Month: %d\r\n", active_zone.rules[1].in_month);
+        printf("Was %d - Should Be %d\r\n", offset.hours, (active_zone.offset.hours + active_zone.rules->offset_hours));
+        printf("Number of Rules: %d\r\n", active_zone.rules_len);
+        printf("Time UTC: %s\r\n", asctime(&tm));
+      }
       assert(offset.hours == (active_zone.offset.hours + active_zone.rules->offset_hours));
     }
     else
     {
-
       if(offset.hours != active_zone.offset.hours)
       {
-        print_all(tm, dt);
-        printf("%d\r\n", active_zone.rules_len);
-        printf("%d - %d\r\n", offset.hours, active_zone.offset.hours);
+        printf("Rule 1 Month: %d\r\n", active_zone.rules[0].in_month);
+        printf("Rule 2 Month: %d\r\n", active_zone.rules[1].in_month);
+        printf("Was %d - Should Be %d\r\n", offset.hours, active_zone.offset.hours);
+        printf("Number of Rules: %d\r\n", active_zone.rules_len);
+        printf("Time UTC: %s\r\n", asctime(&tm));
       }
       assert(offset.hours == active_zone.offset.hours);
     }
   }
+}
+
+void test(char * name)
+{
+  printf("Testing Zone %s\r\n", name);
+  struct tm tm;
+  udatetime_t dt = {0};
+  time_t offset;
+  uzone_t active_zone;
+  time_t time;
+  get_zone_by_name(name, &active_zone);
+  time_t stdoff = active_zone.offset.hours*3600 + active_zone.offset.minutes*60;
+  //all of 2023
+  //for(time=1672552800; time<1704088799; time+=60)
+  //{
+    time = 1678608000;
+    //time = 1699167600;
+    //clear TZ
+    setenv("TZ", name, 1);
+    tzset();
+
+    assert(strcmp(getenv("TZ"), name) == 0);
+
+    //Get the local time from actual for DST
+    tm = *localtime(&time);
+
+    int dst = tm.tm_isdst;
+
+    //Set the TZ to UTC
+    setenv("TZ", "UTC", 1);
+    tzset();
+
+    get_utc_offset(active_zone, time, &offset);
+
+    if(dst)//IN DST
+    {
+      if(offset != (stdoff+3600))
+      {
+        printf("Was %ld - Should Be %ld\r\n", offset/3600, ((stdoff+3600)/3600));
+        printf("Time UTC: %ld\r\n", time);
+      }
+      assert(offset == (stdoff+3600));
+    }
+    else//NOT in DST
+    {
+      if(offset != stdoff)
+      {
+        printf("Was %ld - Should Be %ld\r\n", offset/3600, (stdoff/3600));
+        printf("Time UTC: %ld\r\n", time);
+      }
+      assert(offset == stdoff);
+    }
+  //}
 }
 
 int main()
@@ -90,12 +148,18 @@ int main()
   //printf("Total library db size: %lu B\n", sizeof(zone_rules) + sizeof(zone_abrevs) + sizeof(zone_defns) + sizeof(zone_names));
 
   //Go through each zone and test it
-  const char* zone = zone_names;
+  /*
+  char* zone = (char *)&zone_names[0];
   for (uint16_t utz_k = 0; utz_k < NUM_ZONE_NAMES; utz_k++) {
     test_zone(zone);
     get_next(&zone);
     zone++;
+    if(strcmp(zone, "")==0)
+      break;
   }
+  */
+  //test_zone("America/Santiago");
+  test("America/Chicago");
 
   return 0;
   /*

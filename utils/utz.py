@@ -132,6 +132,8 @@ class Rule(Entry):
                 on_dow, on_dom, at_H, off_H)
             at_z = 1
         l = 2 if self.letter == 'D' else 1 if self.letter == 'S' else 0
+        print(self._src)
+        print(at_H)
 
         # see utz.h for struct definitions
         return f"{{{_from:3}, {to:3}, {on_dow}, {on_dom:2}, {at_z:2}, {at_H:2}, {int(at_M/15)}, {l}, {in_month:2}, {off_H}}}, // {self._src}"
@@ -425,8 +427,7 @@ class TimeZoneDatabase(object):
             name = name.replace("-", '')
             name = name.replace(".", '')
             name = name.replace(",", '')
-            h_buf.append(("#define UTZ_" + name.upper() + ' ' *
-                          (max_len+4-len(name)) + f'&zone_defns[{index:3}]'))
+            #h_buf.append(("#define UTZ_" + name.upper() + ' ' * (max_len+4-len(name)) + f'&zone_defns[{index:3}]'))
             #name = orig_name.replace('_', ' ')
             for c in name:
                 if c == "'":

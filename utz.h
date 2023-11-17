@@ -129,12 +129,12 @@ typedef struct urule_packed_t {
 
 /** @brief unpacked zone type */
 typedef struct uzone_t {
-  const char* name;
-  uoffset_t offset;
-  const urule_packed_t* rules;
-  uint8_t rules_len;
-  const char* abrev_formatter;
-  const uzone_packed_t* src;
+  const char* name; //!< Zone name string
+  uoffset_t offset; //!< Standard UTC offset
+  const urule_packed_t* rules; //!< Pointer to first rule
+  uint8_t rules_len; //!< Number of rules for zone
+  const char* abrev_formatter; //!< Zone abreviation string
+  const uzone_packed_t* src; //!< Packed Zone Source Pointer
 } uzone_t;
 
 /** @brief unpacked rule type, rules for daylight savings time */
@@ -317,5 +317,8 @@ static uint16_t utz_k;
 
 #define days_of_week(n) (&days_of_week[days_of_week_idx[n-1]])
 #define months_of_year(n) (&months_of_year[months_of_year_idx[n-1]])
+
+#include <time.h>
+extern char get_utc_offset(const uzone_t zone, const time_t utc_timestamp, time_t* offset);
 
 #endif /* _UTZ_H */
