@@ -101,9 +101,9 @@ void test(char * name)
   get_zone_by_name(name, &active_zone);
   time_t stdoff = active_zone.offset.hours*3600 + active_zone.offset.minutes*60;
   //all of 2023
-  //for(time=1672552800; time<1704088799; time+=60)
-  //{
-    time = 1678608000;
+  for(time=1672552800; time<1704088799; time+=60)
+  {
+    //time = 1678608000;
     //time = 1699167600;
     //clear TZ
     setenv("TZ", name, 1);
@@ -140,7 +140,7 @@ void test(char * name)
       }
       assert(offset == stdoff);
     }
-  //}
+  }
 }
 
 int main()
@@ -148,16 +148,16 @@ int main()
   //printf("Total library db size: %lu B\n", sizeof(zone_rules) + sizeof(zone_abrevs) + sizeof(zone_defns) + sizeof(zone_names));
 
   //Go through each zone and test it
-  /*
+  //
   char* zone = (char *)&zone_names[0];
   for (uint16_t utz_k = 0; utz_k < NUM_ZONE_NAMES; utz_k++) {
-    test_zone(zone);
+    test(zone);
     get_next(&zone);
     zone++;
     if(strcmp(zone, "")==0)
       break;
   }
-  */
+  //
   //test_zone("America/Santiago");
   test("America/Chicago");
 

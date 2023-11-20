@@ -304,10 +304,11 @@ static urule_t get_active_rule2(const urule_t* rules, time_t utc_timestamp, time
   for (utz_i = 1; utz_i < MAX_CURRENT_RULES; utz_i++)
   {
     //printf("utz_i: %d, mon: %d\r\n", utz_i, rules[utz_i].datetime.date.dayofmonth);
-    printf("RULE:::\r\n");
-    printf("%d-%d-%d\r\n", rules[utz_i].datetime.date.month, rules[utz_i].datetime.date.dayofmonth, rules[utz_i].datetime.date.year);
-    printf("%02d:%02d:%02d\r\n", rules[utz_i].datetime.time.hour, rules[utz_i].datetime.time.minute, rules[utz_i].datetime.time.second);
-    printf("is valid: %d\r\n", !RULE_IS_VALID(rules[utz_i]));
+    //printf("RULE %d:\r\n", utz_i);
+    //printf("Date: %d-%d-%d\r\n", rules[utz_i].datetime.date.month, rules[utz_i].datetime.date.dayofmonth, rules[utz_i].datetime.date.year);
+    //printf("Time: %02d:%02d:%02d\r\n", rules[utz_i].datetime.time.hour, rules[utz_i].datetime.time.minute, rules[utz_i].datetime.time.second);
+    //printf("Letter: %c\r\n", rules[utz_i].letter);
+    //printf("is valid: %d\r\n", !RULE_IS_VALID(rules[utz_i]));
     //Check if time needs to be adjusted
     timestamp = utc_timestamp;
     if(rules[utz_i].is_local_time)
@@ -316,7 +317,7 @@ static urule_t get_active_rule2(const urule_t* rules, time_t utc_timestamp, time
     }
 
     tm = *localtime(&timestamp);
-    printf("Current Date: %s\r\n", asctime(&tm));
+    //printf("Current Date: %s\r\n", asctime(&tm));
     date.date.dayofmonth = tm.tm_mday;
     date.date.dayofweek = tm.tm_wday;//
     date.date.month = tm.tm_mon + 1;
@@ -325,17 +326,19 @@ static urule_t get_active_rule2(const urule_t* rules, time_t utc_timestamp, time
     date.time.minute = tm.tm_min;
     date.time.second = tm.tm_sec;
 
+    //printf("Timestamp: %d/%d/%d -- %02d:%02d:%02d\r\n", date.date.month, date.date.dayofmonth, date.date.year, date.time.hour, date.time.minute, date.time.second);
+
     //Check if after the rule date
-    printf("%u - %u\r\n", date.date.dayofweek, rules[utz_i].datetime.date.dayofweek);
-    printf("ret %d\r\n", udatetime_cmp(&date, &(rules[utz_i].datetime)));
-    if (!RULE_IS_VALID(rules[utz_i]) || udatetime_cmp(&date, &(rules[utz_i].datetime)) > 0)
+    //printf("%u - %u\r\n", date.date.dayofweek, rules[utz_i].datetime.date.dayofweek);
+    //printf("ret %d\r\n", udatetime_cmp(&date, &(rules[utz_i].datetime)));
+    if (!RULE_IS_VALID(rules[utz_i]) || udatetime_cmp(&date, &(rules[utz_i].datetime)) < 0)
     //if (udatetime_cmp(&date, &(rules[utz_i].datetime)) > 0)
     {
       //printf("Ret 1\r\n");
       return rules[utz_i-1];
     }
   }
-  printf("Ret 2\r\n");
+  //printf("Ret 2\r\n");
   return rules[MAX_CURRENT_RULES-1];
 }
 
@@ -350,7 +353,7 @@ char get_utc_offset(const uzone_t zone, const time_t utc_timestamp, time_t* offs
   if(zone.rules_len == 0)
   {
     return 's';//TODO: FIXME
-  }
+  } 
 
   // Get a list of rules for the associated schedule
   urule_t rule_list[MAX_CURRENT_RULES] = { 0 };
