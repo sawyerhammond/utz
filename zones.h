@@ -3,6 +3,8 @@
 
 #define MAX_ABREV_FORMATTER_LEN 11
 
+#include "utz.h"
+
 
 #define NUM_ZONE_NAMES 57
 #define MAX_ZONE_NAME_LEN 31
