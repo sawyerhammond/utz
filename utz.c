@@ -191,14 +191,16 @@ uint8_t get_next(const char** list) {
  *  @return void
  */
 int get_zone_by_name(char* name, uzone_t* zone_out) {
-#ifndef UTZ_GLOBAL_COUNTERS
+  if(name == NULL)
+      return -2;
   uint16_t utz_k;
-#endif
   //memset(cached_rules, 0, sizeof(cached_rules)); Original implementation chached the rules to increase speed and repeat generation (?)
   const char* zone = zone_names;
+  char * cur_name = (char *)zone;
   for (utz_k = 0; utz_k < NUM_ZONE_NAMES; utz_k++) {
     if (ustrneq(zone, name, MAX_ZONE_NAME_LEN)) {
-      unpack_zone(&zone_defns[get_next(&zone)], name, zone_out);
+	  cur_name = (char *)zone;
+      unpack_zone(&zone_defns[get_next(&zone)], cur_name, zone_out);
       return 0;
     } else {
       get_next(&zone);
@@ -238,6 +240,7 @@ static void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, time
       //Use local time so adjust the timestamp
       timestamp += stdoff;
     }
+    //TODO: ASSUMES TZ IS UTC
     cur_year = (*localtime(&timestamp)).tm_year + 1900 - 2000;
 
     if (cur_year >= rules_in[utz_i].from_year && cur_year <= rules_in[utz_i].to_year)
@@ -281,8 +284,8 @@ static urule_t get_active_rule(const urule_t* rules, time_t utc_timestamp, time_
       timestamp += stdoff;
     }
 
+    //TODO: ASSUMES TZ IS UTC
     tm = *localtime(&timestamp);
-    //printf("Current Date: %s\r\n", asctime(&tm));
     date.date.dayofmonth = tm.tm_mday;
     date.date.dayofweek = tm.tm_wday;//
     date.date.month = tm.tm_mon + 1;
