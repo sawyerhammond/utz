@@ -11,45 +11,39 @@
 #include "utz.h"
 #include "zones.h"
 
-const char _days_of_week[] = {
-'M','o','n','d','a','y','\0',
-'T','u','e','s','d','a','y','\0',
-'W','e','d','n','e','s','d','a','y','\0',
-'T','h','u','r','s','d','a','y','\0',
-'F','r','i','d','a','y','\0',
-'S','a','t','u','r','d','a','y','\0',
-'S','u','n','d','a','y','\0',
-};
+/**************************************************************************/
+/*                              constants                                 */
+/**************************************************************************/
 
-const char* days_of_week = (char*)  _days_of_week;
+#define UYEAR_OFFSET 2000
+#define UYEAR_OFFSET_SEC 946684800
+#define UYEAR_FROM_YEAR(y) (y - UYEAR_OFFSET)
+#define UYEAR_TO_YEAR(y) (y + UYEAR_OFFSET)
 
-const uint8_t _days_of_week_idx[] = {0, 7, 15, 25, 34, 41, 50};
-const uint8_t* days_of_week_idx = (uint8_t*) _days_of_week_idx;
+#define OFFSET_INCREMENT 15 // Minutes
 
-const char _months_of_year[] = {
-'J','a','n','u','a','r','y','\0',
-'F','e','b','r','u','a','r','y','\0',
-'M','a','r','c','h','\0',
-'A','p','r','i','l','\0',
-'M','a','y','\0',
-'J','u','n','e','\0',
-'J','u','l','y','\0',
-'A','u','g','u','s','t','\0',
-'S','e','p','t','e','m','b','e','r','\0',
-'N','o','v','e','m','b','e','r','\0',
-'D','e','c','e','m','b','e','r','\0',
-};
-const char* months_of_year = (char*) _months_of_year;
+#define MAX_CURRENT_RULES 4 + 1 // Sorry Morocco
 
-const uint8_t _months_of_year_idx[] = {0, 8, 17, 23, 29, 33, 38, 43, 50, 60, 68, 77};
-const uint8_t* months_of_year_idx = (uint8_t*) _months_of_year_idx;
+#define DAYS_IN_LEAP_YEAR 366
 
-urule_t cached_rules[MAX_CURRENT_RULES];
-const uzone_packed_t* last_zone;
-uint8_t last_year;
+#define RULE_IS_VALID(r) ((r).letter != 0)
+
+#define UTRUE 1
+#define UFALSE 0
 
 #define ustrneq(s1, s2, n) (strncmp(s1, s2, n) == 0)
 
+/**************************************************************************/
+/*                         datetime functions                             */
+/**************************************************************************/
+
+/** @brief returns the day of the week for the given year/month/day
+ *
+ *  @param y year: 1 <= y <= 255 (2001 - 2255)
+ *  @param m month: 1 <= m <= 12
+ *  @param d day: 1 <= d <= 31
+ *  @return day of week (Monday = 1, Sunday = 7)
+ */
 uint8_t dayofweek(uint8_t y, uint8_t m, uint8_t d) {
     static const uint8_t dayofweek_table[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
     y -= m < 3;
@@ -57,6 +51,11 @@ uint8_t dayofweek(uint8_t y, uint8_t m, uint8_t d) {
     if (d == 0) { return 7; } else { return d; }
 }
 
+/** @brief returns true if the year is a leap year
+ *
+ *  @param y year: 1 <= y <= 255 (2001 - 2255)
+ *  @brief true if the year is a leap year
+ */
 uint8_t is_leap_year(uint8_t y) {
 #if UYEAR_OFFSET == 2000
     if (y % 4 || y == 100 || y == 200) {
@@ -80,6 +79,12 @@ uint8_t days_in_month(uint8_t y, uint8_t m) {
   }
 }
 
+/** @brief returns days needed to get from the "current" day to the desired day of the week.
+ *
+ *  @param dayofweek_of_cur the "current" day of the week: 1 <= dayofweek_of_cur <= 7 (Monday = 1, Sunday = 7)
+ *  @param dayofweek the desired day of the week: 1 <= dayofweek <= 7 (Monday = 1, Sunday = 7)
+ *  @return number of days
+ */
 uint8_t next_dayofweek_offset(uint8_t dayofweek_of_cur, uint8_t dayofweek) {
   return (7 + dayofweek - dayofweek_of_cur) % 7;
 }
@@ -95,6 +100,17 @@ int16_t udatetime_cmp(const udatetime_t* dt1, const udatetime_t* dt2) {
   return 0;
 }
 
+/**************************************************************************/
+/*                         zone rule functions                            */
+/**************************************************************************/
+
+/** @brief unpack rule
+ *
+ *  @param rule_in pointer to packed rule
+ *  @param cur_year year: 1 <= y <= 255 (2001 - 2255)
+ *  @param rule_out pointer for the output unpacked rule
+ *  @return void
+ */
 void unpack_rule(const urule_packed_t* rule_in, uint8_t cur_year, urule_t* rule_out) {
   static const char letter_lut[3] = {'-', 'S', 'D'};
 
@@ -136,79 +152,13 @@ void unpack_rule(const urule_packed_t* rule_in, uint8_t cur_year, urule_t* rule_
   rule_out->offset_hours += rule_in->offset_hours;
 }
 
-void rulecpy(urule_t* dest, urule_t* src) {
-#ifndef UTZ_GLOBAL_COUNTERS
-  uint8_t utz_i;
-#endif
-  for (utz_i = 0; utz_i < sizeof(urule_t); utz_i++) {
-    ((uint8_t*)dest)[utz_i] = ((uint8_t*)src)[utz_i];
-  }
-}
-
-void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, uint8_t cur_year, urule_t* rules_out) {
-#ifndef UTZ_GLOBAL_COUNTERS
-  uint8_t utz_i;
-#endif
-  uint8_t last_rule_index = 0;
-  uint8_t current_rule_count = 1;
-
-  for (utz_i = 0; utz_i < num_rules && current_rule_count < MAX_CURRENT_RULES; utz_i++) {
-    // First lets find the "last" rule of the previous year, for simplification
-    // this assumes that multiple rules don't apply to the same month and
-    // that the offset would not change between years (just the day of effect)
-
-    //Is the rule valid for the current year?
-    if (cur_year >= rules_in[utz_i].from_year && cur_year <= rules_in[utz_i].to_year) {
-      //If , then set l
-      if (rules_in[utz_i].in_month > rules_in[last_rule_index].in_month) {
-        last_rule_index = utz_i;
-      }
-      printf("Packing rule %d\r\n", utz_i);
-      unpack_rule(&rules_in[utz_i], cur_year, &rules_out[current_rule_count++]);
-    }
-  }
-
-  printf("Packing rule %d\r\n", last_rule_index);
-  unpack_rule(&rules_in[last_rule_index], cur_year, rules_out);
-  // We override the "last" rule time of effect to be the start of the current year
-  rules_out->date.year = cur_year;
-  rules_out->date.month = 1;
-  rules_out->date.dayofmonth = 1;
-  for (utz_i = 0; utz_i < sizeof(utime_t); utz_i++) {
-    ((char*)&rules_out->time)[utz_i] = 0;
-  }
-}
-
-const urule_t* get_active_rule(const urule_t* rules, const udatetime_t* datetime) {
-#ifndef UTZ_GLOBAL_COUNTERS
-  int8_t utz_i = 0;
-#endif
-  for (utz_i = 1; utz_i < MAX_CURRENT_RULES; utz_i++) {
-    if (!RULE_IS_VALID(rules[utz_i]) || udatetime_cmp(datetime, &(rules[utz_i].datetime)) < 0) {
-      return &rules[utz_i-1];
-    }
-  }
-  return &rules[MAX_CURRENT_RULES-1];
-}
-
-char get_current_offset(const uzone_t* zone, const udatetime_t* datetime, uoffset_t* offset) {
-  const urule_t* rule;
-  /*
-  if (last_zone != zone->src || last_year != datetime->date.year) {
-    unpack_rules(zone->rules, zone->rules_len, datetime->date.year, cached_rules);
-    last_zone = zone->src;
-    last_year = datetime->date.year;
-  }
-  */
-  unpack_rules(zone->rules, zone->rules_len, datetime->date.year, cached_rules);
-
-  offset->minutes = zone->offset.minutes;
-  offset->hours = zone->offset.hours;
-  rule = get_active_rule(cached_rules, datetime);
-  offset->hours += rule->offset_hours;
-  return rule->letter;
-}
-
+/** @brief unpack timezone
+ *
+ *  @param name the name of the timezone
+ *  @param zone_in pointer to input packed zone
+ *  @param zone_in pointer to output unpacked zone
+ *  @return void
+ */
 void unpack_zone(const uzone_packed_t* zone_in, const char* name, uzone_t* zone_out) {
   zone_out->src = zone_in;
   zone_out->name = name;
@@ -222,6 +172,11 @@ void unpack_zone(const uzone_packed_t* zone_in, const char* name, uzone_t* zone_
   zone_out->abrev_formatter = &zone_abrevs[zone_in->abrev_formatter];
 }
 
+/** @brief advance pointer to list and returns index to the the prev item
+ *
+ *  @param list pointer
+ *  @return index into the array for the item before advancement
+ */
 uint8_t get_next(const char** list) {
   do {
     (*list)++;
@@ -229,31 +184,41 @@ uint8_t get_next(const char** list) {
   return (uint8_t) *(++(*list));
 }
 
-const char* get_index(const char* list, uint8_t i) {
-  while(i-->0) {
-    get_next(&list);
-  }
-  return list;
-}
-
-void get_zone_by_name(char* name, uzone_t* zone_out) {
+/** @brief lookup a zone via zone_names
+ *
+ *  @param name the name of the zone to find
+ *  @param zone_out pointer for zone found
+ *  @return void
+ */
+int get_zone_by_name(char* name, uzone_t* zone_out) {
 #ifndef UTZ_GLOBAL_COUNTERS
   uint16_t utz_k;
 #endif
-  memset(cached_rules, 0, sizeof(cached_rules));
+  //memset(cached_rules, 0, sizeof(cached_rules)); Original implementation chached the rules to increase speed and repeat generation (?)
   const char* zone = zone_names;
   for (utz_k = 0; utz_k < NUM_ZONE_NAMES; utz_k++) {
     if (ustrneq(zone, name, MAX_ZONE_NAME_LEN)) {
       unpack_zone(&zone_defns[get_next(&zone)], name, zone_out);
-      break;
+      return 0;
     } else {
       get_next(&zone);
     }
     zone++;
   }
+  return -1;
 }
-////////////////////////////////////////////////////////////////////////////////////
-static void unpack_rules2(const urule_packed_t* rules_in, uint8_t num_rules, time_t utc_timestamp, urule_t* rules_out, time_t stdoff) {
+
+/** @brief unpack rules that are active in the current year
+ *
+ *  Note this assumes no two rules are active on the same day
+ *
+ *  @param rules_in pointer to packed rules
+ *  @param num_rules the number of rules in the array
+ *  @param cur_year year: 1 <= y <= 255 (2001 - 2255)
+ *  @param rules_out pointer for the output unpacked rules
+ *  @return void
+ */
+static void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, time_t utc_timestamp, urule_t* rules_out, time_t stdoff) {
   uint8_t utz_i;
   uint8_t l = 0;
   uint8_t current_rule_count = 1;
@@ -295,7 +260,13 @@ static void unpack_rules2(const urule_packed_t* rules_in, uint8_t num_rules, tim
   }
 }
 
-static urule_t get_active_rule2(const urule_t* rules, time_t utc_timestamp, time_t stdoff)
+/** @brief get the rule that applies at datetime
+ *
+ *  @param rules pointer to rules
+ *  @param utc_timestamp the utc timestamp to check rules for
+ *  @return a pointer the the rule that applies
+ */
+static urule_t get_active_rule(const urule_t* rules, time_t utc_timestamp, time_t stdoff)
 {
   int8_t utz_i = 0;
   time_t timestamp;
@@ -303,12 +274,6 @@ static urule_t get_active_rule2(const urule_t* rules, time_t utc_timestamp, time
   struct tm tm;
   for (utz_i = 1; utz_i < MAX_CURRENT_RULES; utz_i++)
   {
-    //printf("utz_i: %d, mon: %d\r\n", utz_i, rules[utz_i].datetime.date.dayofmonth);
-    //printf("RULE %d:\r\n", utz_i);
-    //printf("Date: %d-%d-%d\r\n", rules[utz_i].datetime.date.month, rules[utz_i].datetime.date.dayofmonth, rules[utz_i].datetime.date.year);
-    //printf("Time: %02d:%02d:%02d\r\n", rules[utz_i].datetime.time.hour, rules[utz_i].datetime.time.minute, rules[utz_i].datetime.time.second);
-    //printf("Letter: %c\r\n", rules[utz_i].letter);
-    //printf("is valid: %d\r\n", !RULE_IS_VALID(rules[utz_i]));
     //Check if time needs to be adjusted
     timestamp = utc_timestamp;
     if(rules[utz_i].is_local_time)
@@ -326,43 +291,33 @@ static urule_t get_active_rule2(const urule_t* rules, time_t utc_timestamp, time
     date.time.minute = tm.tm_min;
     date.time.second = tm.tm_sec;
 
-    //printf("Timestamp: %d/%d/%d -- %02d:%02d:%02d\r\n", date.date.month, date.date.dayofmonth, date.date.year, date.time.hour, date.time.minute, date.time.second);
-
     //Check if after the rule date
-    //printf("%u - %u\r\n", date.date.dayofweek, rules[utz_i].datetime.date.dayofweek);
-    //printf("ret %d\r\n", udatetime_cmp(&date, &(rules[utz_i].datetime)));
     if (!RULE_IS_VALID(rules[utz_i]) || udatetime_cmp(&date, &(rules[utz_i].datetime)) < 0)
-    //if (udatetime_cmp(&date, &(rules[utz_i].datetime)) > 0)
     {
-      //printf("Ret 1\r\n");
       return rules[utz_i-1];
     }
   }
-  //printf("Ret 2\r\n");
   return rules[MAX_CURRENT_RULES-1];
 }
 
 char get_utc_offset(const uzone_t zone, const time_t utc_timestamp, time_t* offset)
 {
   //The offset will at least be the standard offset
-  //offset->minutes = zone->offset.minutes;
-  //offset->hours = zone->offset.hours;
   *offset = zone.offset.hours*3600 + zone.offset.minutes*60;
 
   // No Rules Just use the standart offset
   if(zone.rules_len == 0)
   {
-    return 's';//TODO: FIXME
-  } 
+    return 0;
+  }
 
   // Get a list of rules for the associated schedule
   urule_t rule_list[MAX_CURRENT_RULES] = { 0 };
-  unpack_rules2(zone.rules, zone.rules_len, utc_timestamp, rule_list, *offset);
+  unpack_rules(zone.rules, zone.rules_len, utc_timestamp, rule_list, *offset);
 
   //Get the active rule and add the hour offset to the standard offset
   urule_t rule;
-  rule = get_active_rule2(rule_list, utc_timestamp, *offset);
-  //printf("return: %d\r\n", rule.date.month);
+  rule = get_active_rule(rule_list, utc_timestamp, *offset);
   *offset += rule.offset_hours*3600;
 
   //Return the letter associated with the rule usually S or D -> C%cT for CST or CDT

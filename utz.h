@@ -8,26 +8,7 @@
 #define _UTZ_H
 
 #include <stdint.h>
-
-/**************************************************************************/
-/*                              constants                                 */
-/**************************************************************************/
-
-#define UTRUE 1
-#define UFALSE 0
-
-#define UYEAR_OFFSET 2000
-#define UYEAR_OFFSET_SEC 946684800
-#define UYEAR_FROM_YEAR(y) (y - UYEAR_OFFSET)
-#define UYEAR_TO_YEAR(y) (y + UYEAR_OFFSET)
-
-#define OFFSET_INCREMENT 15 // Minutes
-
-#define MAX_CURRENT_RULES 4 + 1 // Fuck Morocco
-
-#define DAYS_IN_LEAP_YEAR 366
-
-#define RULE_IS_VALID(r) ((r).letter != 0)
+#include <time.h>
 
 /**************************************************************************/
 /*                          struct definitions                            */
@@ -66,7 +47,6 @@ typedef struct udate_t {
   uint8_t dayofmonth; // 01-31 or 0x01-0x31 in bcd mode
   uint8_t dayofweek;
 } udate_t;
-
 
 /** @brief datetime type */
 typedef struct udatetime_t {
@@ -152,127 +132,8 @@ typedef struct urule_t {
 } urule_t;
 
 /**************************************************************************/
-/*                         datetime functions                             */
-/**************************************************************************/
-
-/** @brief returns the day of the week for the given year/month/day
- *
- *  @param y year: 1 <= y <= 255 (2001 - 2255)
- *  @param m month: 1 <= m <= 12
- *  @param d day: 1 <= d <= 31
- *  @return day of week (Monday = 1, Sunday = 7)
- */
-uint8_t dayofweek(uint8_t y, uint8_t m, uint8_t d);
-
-/** @brief returns true if the year is a leap year
- *
- *  @param y year: 1 <= y <= 255 (2001 - 2255)
- *  @brief true if the year is a leap year
- */
-uint8_t is_leap_year(uint8_t y);
-
-/** FIXME
- */
-uint8_t days_in_month(uint8_t y, uint8_t m);
-
-/** @brief returns days needed to get from the "current" day to the desired day of the week.
- *
- *  @param dayofweek_of_cur the "current" day of the week: 1 <= dayofweek_of_cur <= 7 (Monday = 1, Sunday = 7)
- *  @param dayofweek the desired day of the week: 1 <= dayofweek <= 7 (Monday = 1, Sunday = 7)
- *  @return number of days
- */
-uint8_t next_dayofweek_offset(uint8_t dayofweek_of_cur, uint8_t dayofweek);
-
-/** @brief returns *dt1 == *dt2
- *
- *  @param dt1 pointer to the first datetime
- *  @param dt1 pointer to the second datetime
- *  @return *dt1 == *dt2
- */
-uint8_t udatetime_eq(udatetime_t* dt1, udatetime_t* dt2);
-
-/** @brief returns *dt1 < *dt2
- *
- *  @param dt1 pointer to the first datetime
- *  @param dt1 pointer to the second datetime
- *  @return *dt1 < *dt2
- */
-uint8_t udatetime_lt(udatetime_t* dt1, udatetime_t* dt2);
-
-/** @brief returns *dt1 <= *dt2
- *
- *  @param dt1 pointer to the first datetime
- *  @param dt1 pointer to the second datetime
- *  @return *dt1 <= *dt2
- */
-uint8_t udatetime_le(udatetime_t* dt1, udatetime_t* dt2);
-
-/** @brief returns *dt1 > *dt2
- *
- *  @param dt1 pointer to the first datetime
- *  @param dt1 pointer to the second datetime
- *  @return *dt1 > *dt2
- */
-uint8_t udatetime_gt(udatetime_t* dt1, udatetime_t* dt2);
-
-/** @brief returns *dt1 >= *dt2
- *
- *  @param dt1 pointer to the first datetime
- *  @param dt1 pointer to the second datetime
- *  @return *dt1 >= *dt2
- */
-uint8_t udatetime_ge(udatetime_t* dt1, udatetime_t* dt2);
-
-/**************************************************************************/
 /*                         zone rule functions                            */
 /**************************************************************************/
-
-/** @brief unpack rule
- *
- *  @param rule_in pointer to packed rule
- *  @param cur_year year: 1 <= y <= 255 (2001 - 2255)
- *  @param rule_out pointer for the output unpacked rule
- *  @return void
- */
-void unpack_rule(const urule_packed_t* rule_in, uint8_t cur_year, urule_t* rule_out);
-
-/** @brief unpack rules that are active in the current year
- *
- *  Note this assumes no two rules are active on the same day
- *
- *  @param rules_in pointer to packed rules
- *  @param num_rules the number of rules in the array
- *  @param cur_year year: 1 <= y <= 255 (2001 - 2255)
- *  @param rules_out pointer for the output unpacked rules
- *  @return void
- */
-void unpack_rules(const urule_packed_t* rules_in, uint8_t num_rules, uint8_t cur_year, urule_t* rules_out);
-
-/** @brief get the rule that applies at datetime
- *
- *  @param rules pointer to rules
- *  @param datetime the datetime to check rules for
- *  @return a pointer the the rule that applies
- */
-const urule_t* get_active_rule(const urule_t* rules, const udatetime_t* datetime);
-
-/** @brief get the offset for zone at datetime, taking into account daylight savings time rules
- *
- *  @param zone pointer to zone
- *  @param datetime the datetime to check rules for
- *  @param offset offset for zone at datetime
- *  @return abbreviation letter
- */
-char get_current_offset(const uzone_t* zone, const udatetime_t* datetime, uoffset_t* offset);
-
-/** @brief unpack timezone
- *
- *  @param name the name of the timezone
- *  @param zone_in pointer to input packed zone
- *  @param zone_in pointer to output unpacked zone
- *  @return void
- */
-void unpack_zone(const uzone_packed_t* zone_in, const char* name, uzone_t* zone_out);
 
 /** @brief advance pointer to list and returns index to the the prev item
  *
@@ -285,40 +146,17 @@ uint8_t get_next(const char** list);
  *
  *  @param name the name of the zone to find
  *  @param zone_out pointer for zone found
- *  @return void
+ *  @return Status code (currently -1 or 0)
  */
-void get_zone_by_name(char* name, uzone_t* zone_out);
+extern int get_zone_by_name(char* name, uzone_t* zone_out);
 
-int16_t udatetime_cmp(const udatetime_t* dt1, const udatetime_t* dt2);
-
-#ifdef UTZ_MKTIME
-uint32_t umktime(udatetime_t* dt);
-#endif
-/**************************************************************************/
-/*                                globals                                 */
-/**************************************************************************/
-
-/** @brief cached rules for the zone and year from the last call of get_current_offset */
-extern urule_t cached_rules[MAX_CURRENT_RULES];
-
-/** @brief lookup table name of the days of week */
-extern const uint8_t* days_of_week_idx;
-extern const char* days_of_week;
-extern const uint8_t* months_of_year_idx;
-extern const char* months_of_year;
-
-//FIXME
-const char* get_index(const char* list, uint8_t i);
-
-#ifdef UTZ_GLOBAL_COUNTERS
-static uint8_t utz_i, utz_j;
-static uint16_t utz_k;
-#endif
-
-#define days_of_week(n) (&days_of_week[days_of_week_idx[n-1]])
-#define months_of_year(n) (&months_of_year[months_of_year_idx[n-1]])
-
-#include <time.h>
+/** @brief get the offset for zone at datetime, taking into account daylight savings time rules
+ *
+ *  @param zone zone
+ *  @param utc_timestamp the utc timestamp to check rules for
+ *  @param offset offset in seconds for zone at given utc time
+ *  @return abbreviation letter
+ */
 extern char get_utc_offset(const uzone_t zone, const time_t utc_timestamp, time_t* offset);
 
 #endif /* _UTZ_H */
