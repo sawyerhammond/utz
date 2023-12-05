@@ -308,6 +308,7 @@ class TimeZoneDatabase(object):
         whitelisted_zones: List[str] = []
         for alias in included_aliases:
             for link in self.links:
+                print(link)
                 if link.to == alias or link._from == alias:
                     whitelisted_zones.append(link._from)
 
@@ -319,6 +320,7 @@ class TimeZoneDatabase(object):
                 if zone.rules != '-':
                     whitelisted_rules.append(zone.rules)
         self.zones = zones
+
 
         rules = []
         for ruleset in self.rules:

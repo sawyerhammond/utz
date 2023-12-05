@@ -6,7 +6,7 @@
 #include "utz.h"
 
 
-#define NUM_ZONE_NAMES 57
+#define NUM_ZONE_NAMES 108
 #define MAX_ZONE_NAME_LEN 31
 
 extern const urule_packed_t* zone_rules;

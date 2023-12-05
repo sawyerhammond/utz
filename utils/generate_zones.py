@@ -40,10 +40,15 @@ def process(dir: str, region: List[str], include: List[str], whitelist: str):
     db.strip_historical()
 
     included_zones: List[str] = []
+    '''
     if whitelist:
         with open(whitelist) as f:
             for zone in f:
                 included_zones.append(zone.strip())
+    '''
+    for zone in db.zones:
+        # print(zone.name)
+        included_zones.append(zone.name)
 
     c_buf, h_buf = db.pack(H_NAME, included_zones)
     with open(H_NAME, 'w') as hf:
